@@ -3,20 +3,19 @@ var marked = require("marked");
 var ncp = require('ncp').ncp;
 
 var header, footer;
-var chapter = "10";
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
 
 marked.setOptions({
-      gfm: true,
-      tables: true,
-      breaks: false,
-      pedantic: false,
-      sanitize: true,
-      smartLists: true,
-      smartypants: false,
-      langPrefix: 'lang-'
+    gfm: true,
+    tables: true,
+    breaks: false,
+    pedantic: false,
+    sanitize: true,
+    smartLists: true,
+    smartypants: false,
+    langPrefix: 'lang-'
 });
 
 var combineHtml = function(header, body, footer) {
@@ -29,7 +28,7 @@ var combineHtml = function(header, body, footer) {
            footer;
 };
 
-var handleFile = function(file) {
+var handleFile = function(chapter, file) {
     fs.readFile(inputFolder + "/" + chapter + "/" +  file, "utf-8", function(err, data) {
         if (err) {
             console.log(err);
@@ -58,7 +57,7 @@ var handleChapter = function(chapter) {
             console.log(err);
         } else {
             files.forEach(function(file) {
-                handleFile(file);
+                handleFile(chapter, file);
             });
         }
     });
@@ -90,14 +89,27 @@ try {
     process.exit(100);
 }
 
+var processChapters = function() {
+    fs.readdir(inputFolder, function(err, chapters) {
+        if (err) {
+            console.log(err);
+            process.exit(90);
+        } else {
+            chapters.forEach(function(chapter) {
+                makeChapterFolder(chapter);
+            });
+        }
+    });
+};
+
 fs.exists(outputFolder, function(exists) {
     if (exists) {
-        makeChapterFolder(chapter);
+        processChapters();
     } else {
         fs.mkdir(outputFolder, function(err) {
             ncp(resourceFolder, outputFolder, function (err) {
                 if (err) {
-                   console.error(err);
+                    console.error(err);
                     process.exit(110);
                 }
             });
@@ -106,7 +118,7 @@ fs.exists(outputFolder, function(exists) {
                 console.log(err);
                 process.exit(120);
             } else {
-                makeChapterFolder(chapter);
+                processChapters();
             }
         });
     }
