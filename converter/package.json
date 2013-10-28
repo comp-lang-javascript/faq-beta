@@ -1,0 +1,30 @@
+{
+  "name": "comp-lang-javascript-faq",
+  "description": "Converts the Markdown-maintained version of the FAQ to HTML",
+  "author": "Scott Sauyet",
+  "version": "0.1.1",
+  "main": "./lib/convert.js",
+  "keywords": [
+    "markdown",
+    "markup",
+    "html",
+    "comp.lang.javascript",
+    "faq"
+  ],
+  "tags": [
+    "markdown",
+    "markup",
+    "html",
+    "comp.lang.javascript",
+    "faq"
+  ],
+  "devDependencies": {},
+  "scripts": {
+    "test": "node test",
+    "bench": "node test --bench"
+  },
+  "dependencies": {
+    "marked": "~0.2.9",
+    "ncp": "~0.4.2"
+  }
+}
