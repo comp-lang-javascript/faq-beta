@@ -1,11 +1,15 @@
-var fs = require("fs");
+var Q = require("q");
+var FS = require("fs");
 var marked = require("marked");
 var ncp = require('ncp').ncp;
+
+["readFile", "writeFile", "readdir", "mkdir"].forEach(function(name) {this[name] = Q.denodeify(FS[name]);});
 
 var header, footer;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
+var templateFolder = "../templates";
 
 marked.setOptions({
     gfm: true,
@@ -29,97 +33,50 @@ var combineHtml = function(header, body, footer) {
 };
 
 var handleFile = function(chapter, file) {
-    fs.readFile(inputFolder + "/" + chapter + "/" +  file, "utf-8", function(err, data) {
-        if (err) {
-            console.log(err);
-        } else {
-            marked(data, marked.defaults, function(err, content) {
-                if (err) {
-                    console.log(err)
-                } else {
-                    var outputFile = outputFolder + "/" + chapter + "/" + file.replace(/md$/, "html")
-                    fs.writeFile(outputFile, combineHtml(header, content, footer), function(err) {
-                        if (err) {
-                            console.log(err);
-                        } else {
-                            console.log("Wrote " + outputFile);
-                        }
-                    });
-                }
-            });
-        }
-    });
-};
-
-var handleChapter = function(chapter) {
-    fs.readdir(inputFolder + "/" + chapter, function(err, files) {
-        if (err) {
-            console.log(err);
-        } else {
-            files.forEach(function(file) {
-                handleFile(chapter, file);
-            });
-        }
+    var outputFile;
+    return readFile(inputFolder + "/" + chapter + "/" +  file, "utf-8")
+    .then(function(data) {
+        return Q.nfcall(marked, data, marked.defaults);
+    }).then(function(content) {
+        outputFile = outputFolder + "/" + chapter + "/" + file.replace(/md$/, "html")
+        return writeFile(outputFile, combineHtml(header, content, footer))
+    }).then(function() {
+        console.log("Wrote " + outputFile);
     });
 };
 
 var makeChapterFolder = function(chapter) {
     var chapterFolder = outputFolder + "/" + chapter;
-    fs.exists(chapterFolder, function(exists) {
-       if (exists) {
-           handleChapter(chapter);
-       } else {
-           fs.mkdir(chapterFolder, function(err) {
-               if (err) {
-                   console.log(err);
-                   process.exit(130);
-               } else {
-                   handleChapter(chapter);
-               }
-           });
-       }
-    });
-};
-
-try {
-    header = fs.readFileSync("../templates/entry/header.html", "utf-8");
-    footer = fs.readFileSync("../templates/entry/footer.html", "utf-8");
-} catch(e) {
-    console.log(e);
-    process.exit(100);
-}
-
-var processChapters = function() {
-    fs.readdir(inputFolder, function(err, chapters) {
-        if (err) {
-            console.log(err);
-            process.exit(90);
-        } else {
-            chapters.forEach(function(chapter) {
-                makeChapterFolder(chapter);
+    return FS.exists(chapterFolder, function(exists) {
+        return (exists ? Q.fcall(function() {return exists}) :  mkdir(chapterFolder))
+        .then(function() {
+            return readdir(inputFolder + "/" + chapter);
+        })
+        .then(function(files) {
+            files.forEach(function(file) {
+                handleFile(chapter, file);
             });
-        }
-    });
-};
-
-fs.exists(outputFolder, function(exists) {
-    if (exists) {
-        processChapters();
-    } else {
-        fs.mkdir(outputFolder, function(err) {
-            ncp(resourceFolder, outputFolder, function (err) {
-                if (err) {
-                    console.error(err);
-                    process.exit(110);
-                }
-            });
-
-            if (err) {
-                console.log(err);
-                process.exit(120);
-            } else {
-                processChapters();
-            }
         });
-    }
+    });
+};
+
+FS.exists(outputFolder, function(exists) {
+    return Q.all([
+        readFile(templateFolder + "/entry/header.html", "utf-8").then(function(content) {header = content;}),
+        readFile(templateFolder + "/entry/footer.html", "utf-8").then(function(content) {footer = content;})
+    ])
+    .then(exists ? Q.fcall(function() {return exists}) : mkdir(outputFolder))
+    .then(Q.nfcall(ncp, resourceFolder, outputFolder))
+    .then(function() {
+        return readdir(inputFolder)
+    })
+    .then(function(chapters) {
+        chapters.forEach(function(chapter) {
+            makeChapterFolder(chapter);
+        });
+    }).fail(function(err) {
+        console.log("Could not process FAQ documents.");
+        console.log(err);
+        process.exit(999);
+    });
 });
