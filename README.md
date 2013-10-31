@@ -14,4 +14,4 @@ Installation
      npm install
      node lib/convert
 
-The output should go in files in `output/10`.
+The output will go in files in `output/10`.
