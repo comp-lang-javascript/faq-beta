@@ -1,4 +1,4 @@
-﻿Dates
+Dates
 =====
 
 ISO 8601 defines date and time formats. Some benefits include:
