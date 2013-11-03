@@ -8,15 +8,15 @@ var faqs = {};
     this[name] = Q.denodeify(FS[name]);
 });
 
-var header, footer;
+var entryHeader, entryFooter, chapterHeader, chapterFooter;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
 var templateFolder = "../templates";
 
 var combineHtml = function(config) {
-    return header.replace(/\$\{title\}/g, config.title).replace(/\$\{pathToRoot\}/g, "../") +
-            config.content + footer;
+    return entryHeader.replace(/\$\{title\}/g, config.title).replace(/\$\{pathToRoot\}/g, "../") +
+            config.content + entryFooter;
 };
 
 var numeric = function(a, b) {
@@ -34,9 +34,9 @@ var makeChapterToc = function(config) {
 };
 
 var writeChapterIndex = function(config) {
-    return header.replace(/\$\{title\}/g, config.chapter + " " + config.title).replace(/\$\{pathToRoot\}/g, "../") +
+    return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " + config.title).replace(/\$\{pathToRoot\}/g, "../") +
             config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" + config.chapter + ". $1</h1>") +
-            "<hr />" + makeChapterToc(config) + footer;
+            "<hr />" + makeChapterToc(config) + chapterFooter;
 };
 
 var handleInputFile = function(chapter, file, chapterStore) {
@@ -111,9 +111,13 @@ marked.setOptions({
 FS.exists(outputFolder, function(exists) {
     return Q.all([
         readFile(templateFolder + "/entry/header.html", "utf-8")
-        .then(function(content) {header = content;}),
+        .then(function(content) {entryHeader = content;}),
         readFile(templateFolder + "/entry/footer.html", "utf-8")
-        .then(function(content) {footer = content;})
+        .then(function(content) {entryFooter = content;}),
+        readFile(templateFolder + "/chapter/header.html", "utf-8")
+        .then(function(content) {chapterHeader = content;}),
+        readFile(templateFolder + "/chapter/footer.html", "utf-8")
+        .then(function(content) {chapterFooter = content;})
     ])
     .then(exists ? Q.fcall(function() {return exists}) : mkdir(outputFolder))
     .then(Q.nfcall(ncp, resourceFolder, outputFolder))
