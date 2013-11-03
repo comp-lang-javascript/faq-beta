@@ -457,6 +457,7 @@ dl
 .toc 
 {
   list-style: none;
+  padding-left: 1.5em;
 }
 
 .toc .name
@@ -497,4 +498,10 @@ dl
 h1 code, h2 code, h3 code, h4 code, h5 code, h6 code, h7 code
 {
   background-color: inherit;
+}
+
+.sectionNbr
+{
+  display: inline-block;
+  width: 3em;
 }

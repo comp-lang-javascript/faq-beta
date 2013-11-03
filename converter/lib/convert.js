@@ -14,32 +14,37 @@ var outputFolder = "../output";
 var resourceFolder = "../resources";
 var templateFolder = "../templates";
 
-marked.setOptions({
-    gfm: true,
-    tables: true,
-    breaks: false,
-    pedantic: false,
-    sanitize: true,
-    smartLists: true,
-    smartypants: false,
-    langPrefix: 'lang-'
-});
+var combineHtml = function(config) {
+    return header.replace(/\$\{title\}/g, config.title).replace(/\$\{pathToRoot\}/g, "../") +
+            config.content + footer;
+};
 
-var combineHtml = function(header, body, footer) {
-    var match = body.match(/.*<h1>([^<]+)<\/h1>.*/);
-    var title = match && match[1] || "comp.lang.javascript FAQ";
+var numeric = function(a, b) {
+    return a.substring(a.indexOf(".") + 1) - b.substring(b.indexOf(".") + 1);
+};
 
-    return header.replace(/\$\{title\}/g, title)
-                 .replace(/\$\{pathToRoot\}/g, "../") +
-           body +
-           footer;
+var makeChapterToc = function(config) {
+    var chapter = faqs[config.chapter];
+    var toc = ["<ul class='toc'>"];
+    Object.keys(chapter).filter(indexFilter(false)).sort(numeric).forEach(function(file) {
+        toc.push("    <li><span class='sectionNbr'>" + file + "</span> <a href='" + file + ".html'>" + chapter[file].title + "</a></li>");
+    });
+    toc.push("</ul>");
+    return toc.join("\n");
+};
+
+var writeChapterIndex = function(config) {
+    return header.replace(/\$\{title\}/g, config.chapter + " " + config.title).replace(/\$\{pathToRoot\}/g, "../") +
+            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" + config.chapter + ". $1</h1>") +
+            "<hr />" + makeChapterToc(config) + footer;
 };
 
 var handleInputFile = function(chapter, file, chapterStore) {
     return readFile(inputFolder + "/" + chapter + "/" +  file, "utf-8")
     .then(function(data) {
         return Q.nfcall(marked, data, marked.defaults);
-    }).then(function(content) {
+    })
+    .then(function(content) {
         var section = file.replace(/\.md$/, "");
         var match = content.match(/<h1[^>]*>(.*)<\/h1>/);
         var title = match && match[1] || "Unknown Title";
@@ -62,12 +67,18 @@ var readChapterFolder = function(chapter) {
     });
 };
 
-var writeFaqFile = function(config) {
+var writeFaqFile = function(config, fileBuilder) {
     var outputFile = outputFolder + "/" + config.chapter + "/" + config.section + ".html";
-    return writeFile(outputFile, combineHtml(header, config.content, footer))
+    return writeFile(outputFile, fileBuilder(config))
     .then(function() {
         console.log("Wrote " + outputFile);
     });
+};
+
+var indexFilter = function(include) {
+    return function(item) {
+        return include ? (item === "index") : (item !== "index");
+    };
 };
 
 var writeChapterFolder = function(chapterName) {
@@ -76,11 +87,26 @@ var writeChapterFolder = function(chapterName) {
     return FS.exists(chapterFolder, function(exists) {
         return (exists ? Q.fcall(function() {return exists}) :  mkdir(chapterFolder))
         .then(function() {
-            return Q.all(Object.keys(chapter).map(function(file) {return writeFaqFile(chapter[file]);}));
+            var keys = Object.keys(chapter);
+            return Q.all(keys.filter(indexFilter(false)).map(function(file) {
+                return writeFaqFile(chapter[file], combineHtml);
+            }).concat(keys.filter(indexFilter(true)).map(function(file) {
+                return writeFaqFile(chapter[file], writeChapterIndex);
+            })));
         });
     });
-
 };
+
+marked.setOptions({
+    gfm: true,
+    tables: true,
+    breaks: false,
+    pedantic: false,
+    sanitize: true,
+    smartLists: true,
+    smartypants: false,
+    langPrefix: 'lang-'
+});
 
 FS.exists(outputFolder, function(exists) {
     return Q.all([
@@ -96,10 +122,11 @@ FS.exists(outputFolder, function(exists) {
     })
     .then(function(chapters) {
         return Q.all(chapters.map(readChapterFolder));
-    }).then(function() {
-        // console.log(JSON.stringify(faqs, null, 4));
+    })
+    .then(function() {
         return Q.all(Object.keys(faqs).map(writeChapterFolder))
-    }).fail(function(err) {
+    })
+    .fail(function(err) {
         console.log("Could not process FAQ documents.");
         console.log(err);
         process.exit(999);
