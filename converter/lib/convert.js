@@ -2,41 +2,60 @@ var Q = require("q");
 var FS = require("fs");
 var marked = require("marked");
 var ncp = require('ncp').ncp;
+
+// Convert Node callback APIs to Q promise ones.
+var readFile = Q.denodeify(FS.readFile);
+var writeFile = Q.denodeify(FS.writeFile);
+var readdir = Q.denodeify(FS.readdir);
+var mkdir = Q.denodeify(FS.mkdir);
+var exists = function(path) {
+    var dfd = Q.defer();
+    FS.exists(path, dfd.resolve);
+    return dfd.promise;
+};
+
 var faqs = {};
-
-["readFile", "writeFile", "readdir", "mkdir"].forEach(function(name) {
-    this[name] = Q.denodeify(FS[name]);
-});
-
 var entryHeader, entryFooter, chapterHeader, chapterFooter;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
 var templateFolder = "../templates";
 
-var combineHtml = function(config) {
-    return entryHeader.replace(/\$\{title\}/g, config.title).replace(/\$\{pathToRoot\}/g, "../") +
-            config.content + entryFooter;
+var indexFilter = function(include) {
+    return function(item) {
+        return include ? (item === "index") : (item !== "index");
+    };
 };
 
 var numeric = function(a, b) {
     return a.substring(a.indexOf(".") + 1) - b.substring(b.indexOf(".") + 1);
 };
 
+var combineHtml = function(config) {
+    return entryHeader.replace(/\$\{title\}/g, config.title)
+            .replace(/\$\{pathToRoot\}/g, "../") +
+            config.content + entryFooter;
+};
+
 var makeChapterToc = function(config) {
     var chapter = faqs[config.chapter];
     var toc = ["<ul class='toc'>"];
-    Object.keys(chapter).filter(indexFilter(false)).sort(numeric).forEach(function(file) {
-        toc.push("    <li><span class='sectionNbr'>" + file + "</span> <a href='" + file + ".html'>" + chapter[file].title + "</a></li>");
+    Object.keys(chapter).filter(indexFilter(false)).sort(numeric)
+        .forEach(function(file) {
+            toc.push("    <li><span class='sectionNbr'>" + file +
+                "</span> <a href='" + file + ".html'>" +
+                chapter[file].title + "</a></li>");
     });
     toc.push("</ul>");
     return toc.join("\n");
 };
 
 var writeChapterIndex = function(config) {
-    return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " + config.title).replace(/\$\{pathToRoot\}/g, "../") +
-            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" + config.chapter + ". $1</h1>") +
-            "<hr />" + makeChapterToc(config) + chapterFooter;
+    return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " +
+            config.title).replace(/\$\{pathToRoot\}/g, "../") +
+            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" +
+            config.chapter + ". $1</h1>") + "<hr />" + makeChapterToc(config) +
+            chapterFooter;
 };
 
 var handleInputFile = function(chapter, file, chapterStore) {
@@ -68,32 +87,28 @@ var readChapterFolder = function(chapter) {
 };
 
 var writeFaqFile = function(config, fileBuilder) {
-    var outputFile = outputFolder + "/" + config.chapter + "/" + config.section + ".html";
+    var outputFile = outputFolder + "/" + config.chapter + "/" +
+            config.section + ".html";
     return writeFile(outputFile, fileBuilder(config))
     .then(function() {
         console.log("Wrote " + outputFile);
     });
 };
 
-var indexFilter = function(include) {
-    return function(item) {
-        return include ? (item === "index") : (item !== "index");
-    };
-};
-
 var writeChapterFolder = function(chapterName) {
     var chapter = faqs[chapterName];
     var chapterFolder = outputFolder + "/" + chapterName;
-    return FS.exists(chapterFolder, function(exists) {
-        return (exists ? Q.fcall(function() {return exists}) :  mkdir(chapterFolder))
-        .then(function() {
-            var keys = Object.keys(chapter);
-            return Q.all(keys.filter(indexFilter(false)).map(function(file) {
-                return writeFaqFile(chapter[file], combineHtml);
-            }).concat(keys.filter(indexFilter(true)).map(function(file) {
-                return writeFaqFile(chapter[file], writeChapterIndex);
-            })));
-        });
+    return exists(chapterFolder)
+    .then(function(chapterFolderExists) {
+        return (chapterFolderExists ? Q(chapterFolderExists) : mkdir(chapterFolder))
+    })
+    .then(function() {
+        var keys = Object.keys(chapter);
+        return Q.all(keys.filter(indexFilter(false)).map(function(file) {
+            return writeFaqFile(chapter[file], combineHtml);
+        }).concat(keys.filter(indexFilter(true)).map(function(file) {
+            return writeFaqFile(chapter[file], writeChapterIndex);
+        })));
     });
 };
 
@@ -108,7 +123,11 @@ marked.setOptions({
     langPrefix: 'lang-'
 });
 
-FS.exists(outputFolder, function(exists) {
+exists(outputFolder)
+.then(function(outputFolderExists) {
+    return outputFolderExists ? Q(outputFolderExists) : mkdir(outputFolder);
+})
+.then(function() {
     return Q.all([
         readFile(templateFolder + "/entry/header.html", "utf-8")
         .then(function(content) {entryHeader = content;}),
@@ -119,20 +138,19 @@ FS.exists(outputFolder, function(exists) {
         readFile(templateFolder + "/chapter/footer.html", "utf-8")
         .then(function(content) {chapterFooter = content;})
     ])
-    .then(exists ? Q.fcall(function() {return exists}) : mkdir(outputFolder))
-    .then(Q.nfcall(ncp, resourceFolder, outputFolder))
-    .then(function() {
-        return readdir(inputFolder)
-    })
-    .then(function(chapters) {
-        return Q.all(chapters.map(readChapterFolder));
-    })
-    .then(function() {
-        return Q.all(Object.keys(faqs).map(writeChapterFolder))
-    })
-    .fail(function(err) {
-        console.log("Could not process FAQ documents.");
-        console.log(err);
-        process.exit(999);
-    });
+})
+.then(Q.nfcall(ncp, resourceFolder, outputFolder))
+.then(function() {
+    return readdir(inputFolder)
+})
+.then(function(chapters) {
+    return Q.all(chapters.map(readChapterFolder));
+})
+.then(function() {
+    return Q.all(Object.keys(faqs).map(writeChapterFolder))
+})
+.fail(function(err) {
+    console.log("Could not process FAQ documents.");
+    console.log(err);
+    process.exit(999);
 });
