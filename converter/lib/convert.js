@@ -16,7 +16,7 @@ var exists = function(path) { // Doesn't behave like other FS.xyz functions...
 
 var faqs = {};
 var entryHeader, entryFooter, chapterHeader, chapterFooter,
-    tocHeader, tocFooter;
+    tocHeader, tocFooter, indexHeader, indexFooter;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
@@ -166,7 +166,11 @@ exists(outputFolder)
         readFile(templateFolder + "/toc/header.html", "utf-8")
         .then(function(content) {tocHeader = content;}),
         readFile(templateFolder + "/toc/footer.html", "utf-8")
-        .then(function(content) {tocFooter = content;})
+        .then(function(content) {tocFooter = content;}),
+        readFile(templateFolder + "/index/header.html", "utf-8")
+        .then(function(content) {indexHeader = content;}),
+        readFile(templateFolder + "/index/footer.html", "utf-8")
+        .then(function(content) {indexFooter = content;})
     ])
 })
 .then(Q.nfcall(ncp, resourceFolder, outputFolder))
