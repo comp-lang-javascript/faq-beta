@@ -503,5 +503,12 @@ h1 code, h2 code, h3 code, h4 code, h5 code, h6 code, h7 code
 .sectionNbr
 {
   display: inline-block;
-  width: 3em;
+}
+.toc .sectionNbr {
+    width: 1.5em;
+    margin-top: .75em;
+}
+.toc .toc .sectionNbr {
+    width: 3em;
+    margin-top: 0;
 }

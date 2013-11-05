@@ -52,12 +52,13 @@ var makeChapterToc = function(config, linkBuilder) {
 };
 
 var writeChapterIndex = function(config) {
+    var hasLeader = config.content.replace(/\n/, "").match(/.*<h1>([^<]+)<\/h1>(\W)*/);
     return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " +
             config.title).replace(/\$\{pathToRoot\}/g, "../") +
-            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" +
-            config.chapter + ". $1</h1>") + "<hr />" +
-            makeChapterToc(config, function(type, file) {return file + ".html";}) +
-            chapterFooter;
+            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "  <h1>" +
+            config.chapter + ". $1</h1>") + (hasLeader[2] ? "  <hr/>\n" : "") + "  " +
+            makeChapterToc(config, function(type, file) {return file + ".html";})
+                .split("\n").join("\n  ") + "\n" + chapterFooter;
 };
 
 var handleInputFile = function(chapter, file, chapterStore) {
@@ -124,13 +125,12 @@ var writeMainToc = function() {
                 "</span> <a href='" + chapter + "/" + "index.html'>" +
                 faqs[chapter].index.title + "</a>");
         toc.push("    " + makeChapterToc(faqs[chapter].index, linkBuilder)
-                .split("\n").join("\n    "));
+                .split("\n").join("\n      "));
         toc.push("  </li>");
     });
     toc.push("</ul>");
-    toc.push("");
-    var result = tocHeader.replace(/\$\{pathToRoot\}/g, "") + toc.join("\n") +
-            tocFooter;
+    var result = tocHeader.replace(/\$\{pathToRoot\}/g, "") + "  " +
+            toc.join("\n  ") + "\n" + tocFooter;
     var outputFile = outputFolder + "/faq.html";
     return writeFile(outputFile, result)
     .then(function() {
