@@ -38,13 +38,13 @@ var combineHtml = function(config) {
             config.content + entryFooter;
 };
 
-var makeChapterToc = function(config) {
+var makeChapterToc = function(config, linkBuilder) {
     var chapter = faqs[config.chapter];
     var toc = ["<ul class='toc'>"];
     Object.keys(chapter).filter(indexFilter(false)).sort(numeric)
         .forEach(function(file) {
             toc.push("  <li><span class='sectionNbr'>" + file +
-                "</span> <a href='" + file + ".html'>" +
+                "</span> <a href='" + linkBuilder(file) + "'>" +
                 chapter[file].title + "</a></li>");
     });
     toc.push("</ul>");
@@ -55,7 +55,8 @@ var writeChapterIndex = function(config) {
     return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " +
             config.title).replace(/\$\{pathToRoot\}/g, "../") +
             config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "<h1>" +
-            config.chapter + ". $1</h1>") + "<hr />" + makeChapterToc(config) +
+            config.chapter + ". $1</h1>") + "<hr />" +
+            makeChapterToc(config, function(type, file) {return file + ".html";}) +
             chapterFooter;
 };
 
@@ -117,12 +118,13 @@ var writeChapterFolder = function(chapterName) {
 var writeMainToc = function() {
     var toc = ["<ul class='toc'>"];
     Object.keys(faqs).sort(numeric).forEach(function(chapter) {
+        var linkBuilder = function(file) {return chapter + "/" + file + ".html";};
         toc.push("  <li>");
         toc.push("    <span class='sectionNbr'>" + chapter +
                 "</span> <a href='" + chapter + "/" + "index.html'>" +
                 faqs[chapter].index.title + "</a>");
-        toc.push("    " + makeChapterToc(faqs[chapter].index).split("\n")
-                .join("\n    "));
+        toc.push("    " + makeChapterToc(faqs[chapter].index, linkBuilder)
+                .split("\n").join("\n    "));
         toc.push("  </li>");
     });
     toc.push("</ul>");
