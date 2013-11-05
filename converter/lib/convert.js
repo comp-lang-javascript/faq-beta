@@ -8,14 +8,15 @@ var readFile = Q.denodeify(FS.readFile);
 var writeFile = Q.denodeify(FS.writeFile);
 var readdir = Q.denodeify(FS.readdir);
 var mkdir = Q.denodeify(FS.mkdir);
-var exists = function(path) {
+var exists = function(path) { // Doesn't behave like other FS.xyz functions...
     var dfd = Q.defer();
     FS.exists(path, dfd.resolve);
     return dfd.promise;
 };
 
 var faqs = {};
-var entryHeader, entryFooter, chapterHeader, chapterFooter;
+var entryHeader, entryFooter, chapterHeader, chapterFooter,
+    tocHeader, tocFooter;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
@@ -42,7 +43,7 @@ var makeChapterToc = function(config) {
     var toc = ["<ul class='toc'>"];
     Object.keys(chapter).filter(indexFilter(false)).sort(numeric)
         .forEach(function(file) {
-            toc.push("    <li><span class='sectionNbr'>" + file +
+            toc.push("  <li><span class='sectionNbr'>" + file +
                 "</span> <a href='" + file + ".html'>" +
                 chapter[file].title + "</a></li>");
     });
@@ -100,7 +101,8 @@ var writeChapterFolder = function(chapterName) {
     var chapterFolder = outputFolder + "/" + chapterName;
     return exists(chapterFolder)
     .then(function(chapterFolderExists) {
-        return (chapterFolderExists ? Q(chapterFolderExists) : mkdir(chapterFolder))
+        return (chapterFolderExists ? Q(chapterFolderExists)
+                                    : mkdir(chapterFolder));
     })
     .then(function() {
         var keys = Object.keys(chapter);
@@ -109,6 +111,28 @@ var writeChapterFolder = function(chapterName) {
         }).concat(keys.filter(indexFilter(true)).map(function(file) {
             return writeFaqFile(chapter[file], writeChapterIndex);
         })));
+    });
+};
+
+var writeMainToc = function() {
+    var toc = ["<ul class='toc'>"];
+    Object.keys(faqs).sort(numeric).forEach(function(chapter) {
+        toc.push("  <li>");
+        toc.push("    <span class='sectionNbr'>" + chapter +
+                "</span> <a href='" + chapter + "/" + "index.html'>" +
+                faqs[chapter].index.title + "</a>");
+        toc.push("    " + makeChapterToc(faqs[chapter].index).split("\n")
+                .join("\n    "));
+        toc.push("  </li>");
+    });
+    toc.push("</ul>");
+    toc.push("");
+    var result = tocHeader.replace(/\$\{pathToRoot\}/g, "") + toc.join("\n") +
+            tocFooter;
+    var outputFile = outputFolder + "/faq.html";
+    return writeFile(outputFile, result)
+    .then(function() {
+        console.log("Wrote " + outputFile);
     });
 };
 
@@ -136,7 +160,11 @@ exists(outputFolder)
         readFile(templateFolder + "/chapter/header.html", "utf-8")
         .then(function(content) {chapterHeader = content;}),
         readFile(templateFolder + "/chapter/footer.html", "utf-8")
-        .then(function(content) {chapterFooter = content;})
+        .then(function(content) {chapterFooter = content;}),
+        readFile(templateFolder + "/toc/header.html", "utf-8")
+        .then(function(content) {tocHeader = content;}),
+        readFile(templateFolder + "/toc/footer.html", "utf-8")
+        .then(function(content) {tocFooter = content;})
     ])
 })
 .then(Q.nfcall(ncp, resourceFolder, outputFolder))
@@ -148,6 +176,9 @@ exists(outputFolder)
 })
 .then(function() {
     return Q.all(Object.keys(faqs).map(writeChapterFolder))
+})
+.then(function() {
+    return writeMainToc();
 })
 .fail(function(err) {
     console.log("Could not process FAQ documents.");
