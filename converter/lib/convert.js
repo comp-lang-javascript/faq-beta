@@ -27,9 +27,17 @@ var indexFilter = function(include) {
         return include ? (item === "index") : (item !== "index");
     };
 };
+var noIndex = indexFilter(false);
+var indexOnly = indexFilter(true);
 
 var numeric = function(a, b) {
     return a.substring(a.indexOf(".") + 1) - b.substring(b.indexOf(".") + 1);
+};
+
+var resetPreBlocks = function(text) {
+    return text.replace(/(\n\s*)<pre><code>([\s\S]*?)<\/code><\/pre>/g, function(text, leading, body) {
+        return "<pre><code>" + body.split(leading).join("\n") + "</code></pre>"
+    });
 };
 
 var combineHtml = function(config) {
@@ -41,7 +49,7 @@ var combineHtml = function(config) {
 var makeChapterToc = function(config, linkBuilder) {
     var chapter = faqs[config.chapter];
     var toc = ["<ul class='toc'>"];
-    Object.keys(chapter).filter(indexFilter(false)).sort(numeric)
+    Object.keys(chapter).filter(noIndex).sort(numeric)
         .forEach(function(file) {
             toc.push("  <li><span class='sectionNbr'>" + file +
                 "</span> <a href='" + linkBuilder(file) + "'>" +
@@ -53,10 +61,12 @@ var makeChapterToc = function(config, linkBuilder) {
 
 var writeChapterIndex = function(config) {
     var hasLeader = config.content.replace(/\n/, "").match(/.*<h1>([^<]+)<\/h1>(\W)*/);
-    return chapterHeader.replace(/\$\{title\}/g, config.chapter + " " +
-            config.title).replace(/\$\{pathToRoot\}/g, "../") +
-            config.content.replace(/.*<h1>([^<]+)<\/h1>.*/, "  <h1>" +
-            config.chapter + ". $1</h1>") + (hasLeader[2] ? "  <hr/>\n" : "") + "  " +
+    return chapterHeader
+            .replace(/\$\{title\}/g, config.chapter + " " + config.title)
+            .replace(/\$\{pathToRoot\}/g, "../") +
+            config.content
+            .replace(/.*<h1>([^<]+)<\/h1>.*/, "  <h1>" + config.chapter + ". $1</h1>") +
+            (hasLeader[2] ? "  <hr/>\n" : "") + "  " +
             makeChapterToc(config, function(type, file) {return file + ".html";})
                 .split("\n").join("\n  ") + "\n" + chapterFooter;
 };
@@ -108,9 +118,9 @@ var writeChapterFolder = function(chapterName) {
     })
     .then(function() {
         var keys = Object.keys(chapter);
-        return Q.all(keys.filter(indexFilter(false)).map(function(file) {
+        return Q.all(keys.filter(noIndex).map(function(file) {
             return writeFaqFile(chapter[file], combineHtml);
-        }).concat(keys.filter(indexFilter(true)).map(function(file) {
+        }).concat(keys.filter(indexOnly).map(function(file) {
             return writeFaqFile(chapter[file], writeChapterIndex);
         })));
     });
@@ -138,6 +148,60 @@ var writeMainToc = function() {
     });
 };
 
+var dropHeaders = function(content, levels) {
+    var results = content;
+    for (var i = 7 - levels; i --> 1;) {
+        results = results.replace(
+                new RegExp("<h" + i + "([^>])*>(.*?)<\/h" + i + ">" ,"g"),
+                "<h" + (i + levels) + "$1>$2</h" + (i + 1) + ">"
+        );
+    }
+    return results;
+};
+
+var buildIndexBody = function(faqs) {
+    var divs = [];
+    Object.keys(faqs).sort(numeric).forEach(function(chapter) {
+        var content = "  " + faqs[chapter].index.content.split("\n").join("\n    ");
+        divs.push("<div class='chapter' id='s" + chapter + "'>");
+        // divs.push("  <h2>" + chapter + " " + faqs[chapter].index.title + "</h2>");
+        divs.push(dropHeaders(content, 1));
+        Object.keys(faqs[chapter]).filter(noIndex).sort(numeric).forEach(function(file) {
+            var content = "    " + faqs[chapter][file].content.split("\n").join("\n      ");
+            divs.push("  <div class='question' id='s" + file + "'>");
+            divs.push(dropHeaders(content, 2));
+            divs.push("  </div>\n")
+        });
+        divs.push("</div>\n");
+    });
+
+    return "  " + divs.join("\n  ");
+};
+
+
+var writeIndexFile = function() {
+    var toc = ["<ul class='toc'>"];
+    Object.keys(faqs).sort(numeric).forEach(function(chapter) {
+        var linkBuilder = function(file) {return "#s" + file;};
+        toc.push("  <li>");
+        toc.push("    <span class='sectionNbr'>" + chapter +
+                "</span> <a href='#s" + chapter + "'>" +
+                faqs[chapter].index.title + "</a>");
+        toc.push("    " + makeChapterToc(faqs[chapter].index, linkBuilder)
+                .split("\n").join("\n      "));
+        toc.push("  </li>");
+    });
+    toc.push("</ul>");
+    var body = buildIndexBody(faqs);
+    var result = indexHeader.replace(/\$\{pathToRoot\}/g, "") + "  " +
+            toc.join("\n  ") + "\n" + body + "\n" + indexFooter;
+    var outputFile = outputFolder + "/index.html";
+    return writeFile(outputFile, resetPreBlocks(result))
+    .then(function() {
+        console.log("Wrote " + outputFile);
+    });
+};
+
 marked.setOptions({
     gfm: true,
     tables: true,
@@ -154,7 +218,7 @@ exists(outputFolder)
     return outputFolderExists ? Q(outputFolderExists) : mkdir(outputFolder);
 })
 .then(function() {
-    return Q.all([
+    return Q.all([  // TODO: needs refactoring... too repetitive.
         readFile(templateFolder + "/entry/header.html", "utf-8")
         .then(function(content) {entryHeader = content;}),
         readFile(templateFolder + "/entry/footer.html", "utf-8")
@@ -185,6 +249,9 @@ exists(outputFolder)
 })
 .then(function() {
     return writeMainToc();
+})
+.then(function() {
+    return writeIndexFile();
 })
 .fail(function(err) {
     console.log("Could not process FAQ documents.");
