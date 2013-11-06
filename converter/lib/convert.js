@@ -48,7 +48,7 @@ var combineHtml = function(config) {
 
 var makeChapterToc = function(config, linkBuilder) {
     var chapter = faqs[config.chapter];
-    var toc = ["<ul class='toc'>"];
+    var toc = ["<ul class='chapter'>"];
     Object.keys(chapter).filter(noIndex).sort(numeric)
         .forEach(function(file) {
             toc.push("  <li><span class='sectionNbr'>" + file +
@@ -67,7 +67,7 @@ var writeChapterIndex = function(config) {
             config.content
             .replace(/.*<h1>([^<]+)<\/h1>.*/, "  <h1>" + config.chapter + ". $1</h1>") +
             (hasLeader[2] ? "  <hr/>\n" : "") + "  " +
-            makeChapterToc(config, function(type, file) {return file + ".html";})
+            makeChapterToc(config, function(file) {return file + ".html";})
                 .split("\n").join("\n  ") + "\n" + chapterFooter;
 };
 

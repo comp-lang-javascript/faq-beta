@@ -454,13 +454,13 @@ dl
   zoom: 1;
 }
 
-.toc 
+.toc, .chapter
 {
   list-style: none;
   padding-left: 1.5em;
 }
 
-.toc .name
+.toc .name, .chapter .name
 {
   font-size: 1.25em;
   font-weight: bold;
@@ -468,12 +468,12 @@ dl
   color: #5f2580;
 }
 
-.toc a 
+.toc a, .chapter a
 {
   text-decoration: none;
 }
 
-.toc ul
+.toc ul, .chapter ul
 {
   margin: .25em 0;
 }
@@ -504,11 +504,15 @@ h1 code, h2 code, h3 code, h4 code, h5 code, h6 code, h7 code
 {
   display: inline-block;
 }
-.toc .sectionNbr {
+
+.toc .sectionNbr
+{
     width: 1.5em;
     margin-top: .75em;
 }
-.toc .toc .sectionNbr {
+
+.chapter .sectionNbr
+{
     width: 3em;
     margin-top: 0;
 }
