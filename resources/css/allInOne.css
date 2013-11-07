@@ -1,0 +1,58 @@
+html {
+    font-family: sans-serif;
+    font-size: 90%;
+    background: #F6f6f6;
+    color: #000;
+}
+body {
+    margin: 1em;
+    border-bottom: 1px solid #ccc;
+}
+h1 {
+    font-size: 160%;
+}
+a {
+    text-decoration: none;
+    color: #002288;
+    background: none;
+}
+#faqList {
+    font-size: 120%;
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#faqList ul {
+    font-size: 83%;
+    list-style: none;
+    padding-left: 0;
+    padding-top: 0;
+    margin-left: 1em;
+    color: #333;
+}
+#faqList li {
+    margin-top: .3em;
+    margin-bottom: .3em;
+}
+h2 {
+    font-size: 140%;
+}
+.section {
+    padding-top: 1.2em;
+}
+ul.linkList {
+    background-color: #eeeeee;
+    border: #999999 1px solid;
+    color: #000000;
+    font-size: 100%;
+    padding: 0.2em;
+    list-style: none;
+}
+pre {
+    font-family: monospace;
+    background-color: #fFF9f9;
+    border: #bb7799 1px solid;
+    color: #440011;
+    font-size: 100%;
+    padding: 5px 5px 5px 10px;
+}

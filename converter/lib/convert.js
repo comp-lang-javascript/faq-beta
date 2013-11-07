@@ -1,3 +1,4 @@
+var start = new Date();
 var Q = require("q");
 var FS = require("fs");
 var marked = require("marked");
@@ -16,7 +17,7 @@ var exists = function(path) { // Doesn't behave like other FS.xyz functions...
 
 var faqs = {};
 var entryHeader, entryFooter, chapterHeader, chapterFooter,
-    tocHeader, tocFooter, indexHeader, indexFooter;
+    tocHeader, tocFooter, indexHeader, indexFooter, indexHeader2;
 var inputFolder = "../faq-src";
 var outputFolder = "../output";
 var resourceFolder = "../resources";
@@ -153,7 +154,7 @@ var dropHeaders = function(content, levels) {
     for (var i = 7 - levels; i --> 1;) {
         results = results.replace(
                 new RegExp("<h" + i + "([^>])*>(.*?)<\/h" + i + ">" ,"g"),
-                "<h" + (i + levels) + "$1>$2</h" + (i + 1) + ">"
+                "<h" + (i + levels) + "$1>$2</h" + (i + levels) + ">"
         );
     }
     return results;
@@ -163,13 +164,18 @@ var buildIndexBody = function(faqs) {
     var divs = [];
     Object.keys(faqs).sort(numeric).forEach(function(chapter) {
         var content = "  " + faqs[chapter].index.content.split("\n").join("\n    ");
-        divs.push("<div class='chapter' id='s" + chapter + "'>");
-        // divs.push("  <h2>" + chapter + " " + faqs[chapter].index.title + "</h2>");
-        divs.push(dropHeaders(content, 1));
+        divs.push("<div class='section' id='s" + chapter + "'>");
+        divs.push(dropHeaders(content, 1)
+                .replace(/<h2>(.+?)<\/h2>/g, "<h2>" + chapter + " $1</h2>")
+                .replace(/<hr>(.|[\r\n])*<ul>/g, "<ul class='linkList'>")
+        );
         Object.keys(faqs[chapter]).filter(noIndex).sort(numeric).forEach(function(file) {
             var content = "    " + faqs[chapter][file].content.split("\n").join("\n      ");
             divs.push("  <div class='question' id='s" + file + "'>");
-            divs.push(dropHeaders(content, 2));
+            divs.push(dropHeaders(content, 2)
+                .replace(/<h3>(.+?)<\/h3>/g, "<h3>" + file + " $1</h3>")
+                .replace(/<hr>(.|[\r\n])*<ul>/g, "<ul class='linkList'>")
+            );
             divs.push("  </div>\n")
         });
         divs.push("</div>\n");
@@ -180,7 +186,7 @@ var buildIndexBody = function(faqs) {
 
 
 var writeIndexFile = function() {
-    var toc = ["<ul class='toc'>"];
+    var toc = ["<ul id='faqList' class='toc'>"];
     Object.keys(faqs).sort(numeric).forEach(function(chapter) {
         var linkBuilder = function(file) {return "#s" + file;};
         toc.push("  <li>");
@@ -193,12 +199,18 @@ var writeIndexFile = function() {
     });
     toc.push("</ul>");
     var body = buildIndexBody(faqs);
-    var result = indexHeader.replace(/\$\{pathToRoot\}/g, "") + "  " +
-            toc.join("\n  ") + "\n" + body + "\n" + indexFooter;
+    var content = "  " + toc.join("\n  ") + "\n" + body + "\n" + indexFooter;
+    var result = indexHeader.replace(/\$\{pathToRoot\}/g, "") + content;
     var outputFile = outputFolder + "/index.html";
-    return writeFile(outputFile, resetPreBlocks(result))
+    var result2 = indexHeader2.replace(/\$\{pathToRoot\}/g, "") + content;
+    var outputFile2 = outputFolder + "/index2.html";
+    return Q.all([
+        writeFile(outputFile, resetPreBlocks(result)),
+        writeFile(outputFile2, resetPreBlocks(result2))
+    ])
     .then(function() {
         console.log("Wrote " + outputFile);
+        console.log("Wrote " + outputFile2);
     });
 };
 
@@ -233,6 +245,8 @@ exists(outputFolder)
         .then(function(content) {tocFooter = content;}),
         readFile(templateFolder + "/index/header.html", "utf-8")
         .then(function(content) {indexHeader = content;}),
+        readFile(templateFolder + "/index/header2.html", "utf-8")
+        .then(function(content) {indexHeader2 = content;}),
         readFile(templateFolder + "/index/footer.html", "utf-8")
         .then(function(content) {indexFooter = content;})
     ])
@@ -252,6 +266,10 @@ exists(outputFolder)
 })
 .then(function() {
     return writeIndexFile();
+})
+.then(function() {
+    console.log("");
+    console.log("Completed in " + (new Date() - start) + " milliseconds.");
 })
 .fail(function(err) {
     console.log("Could not process FAQ documents.");

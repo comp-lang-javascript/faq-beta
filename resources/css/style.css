@@ -516,3 +516,10 @@ h1 code, h2 code, h3 code, h4 code, h5 code, h6 code, h7 code
     width: 3em;
     margin-top: 0;
 }
+.linkList
+{
+    border-top: 1px solid #ccc;
+    padding-top: 2em;
+    margin-top: 2em;
+    width: 50em;
+}
