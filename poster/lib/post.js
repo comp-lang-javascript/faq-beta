@@ -29,8 +29,10 @@ nntp.start()
         var now = (new Date()).getTime();
         if (nntp.connected) {
             console.log("Successfully completed.");
+            process.exit(0);
         } else if (now > stop) {
-            console.log("Connection timed out.")
+            // console.log("Connection timed out.")
+            throw new Error("Connection timed out.");
         } else {
             setTimeout(check, 250);
         }
