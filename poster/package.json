@@ -1,0 +1,17 @@
+{
+    "name": "comp-lang-javascript-faq-poster",
+    "description": "Posts a random Markdown file to comp.lang.javsacript",
+    "author": "Scott Sauyet <scott@sauyet.com>",
+    "version": "0.1.0",
+    "main": "./lib/post.js",
+    "keywords": ["markdown", "markup", "html", "comp.lang.javascript", "faq",
+                 "usenet", "nntp", "newsgroup"],
+    "tags": ["markdown", "markup", "html", "comp.lang.javascript", "faq",
+             "usenet", "nntp", "newsgroup"],
+    "dependencies": {
+        "q": "~0.9.7"
+    },
+    "licenses": [
+        {"type": "MIT", "url": "http://scottsauyet.mit-license.org/"}
+    ]
+}
